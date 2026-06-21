@@ -78,3 +78,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: build/${{ github.ref_name }}-${{ matrix.build }}
+          tag_name: ${{ github.ref_name }}
