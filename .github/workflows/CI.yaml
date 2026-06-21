@@ -15,21 +15,22 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-22.04, macos-15-intel, macos-latest]
+        # os: [windows-latest, ubuntu-22.04, macos-15-intel, macos-latest]
         # os: [windows-latest, ubuntu-latest, macos-15-intel, macos-latest, windows-11-arm]
+        os: [windows-latest]
         include:
           - os: windows-latest
             build: BHYG-Windows.exe
             bdist_client: OSS-Windows
-          - os: ubuntu-22.04
-            build: BHYG-Linux
-            bdist_client: OSS-Linux
-          - os: macos-15-intel
-            build: BHYG-macOS-Intel.bin
-            bdist_client: OSS-Mac(Intel)
-          - os: macos-latest
-            build: BHYG-macOS-Apple_Silicon.bin
-            bdist_client: OSS-Mac
+          # - os: ubuntu-22.04
+          #   build: BHYG-Linux
+          #   bdist_client: OSS-Linux
+          # - os: macos-15-intel
+          #   build: BHYG-macOS-Intel.bin
+          #   bdist_client: OSS-Mac(Intel)
+          # - os: macos-latest
+          #   build: BHYG-macOS-Apple_Silicon.bin
+          #   bdist_client: OSS-Mac
           # - os: windows-11-arm
           #   build: BHYG-Windows-arm.exe
     runs-on: ${{ matrix.os }}
@@ -75,6 +76,5 @@ jobs:
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: build/${{ github.ref_name }}-${{ matrix.build }}

@@ -29,6 +29,8 @@ from typing import final
 POLICY_BASE = "https://not.available.in.oss.invalid"
 VERSION = "v1.13.1 OSS"
 
+BYPASS_412 = False
+
 USE_CAPTCHA = False
 
 ROUND = 0
@@ -1199,7 +1201,15 @@ class BHYG(metaclass=ProtectedMeta):
 
         order_base, order_ip = combines[ROUND % len(combines)]
 
-        logger.info(f"Trying order create with base {order_base} and ip {order_ip}...")
+        logger.debug(f"Trying order create with base {order_base} and ip {order_ip}...")
+        
+        if BYPASS_412: # not sure if works
+            user_id_new  = random.randint(10000000, 99999999)
+            self.client.session.cookies.pop("DedeUserID", None)
+            self.client.session.cookies.set(
+                "DedeUserID", str(user_id_new), domain=".bilibili.com"
+            )
+
         resp = self.client.post(
             f"https://{order_base}/api/ticket/order/createV2?project_id={self.config['project_id']}{'&ptoken=' + ptoken if self.config['hotProject'] else ''}",
             json=data,
@@ -1561,7 +1571,7 @@ class BHYG(metaclass=ProtectedMeta):
                     logger.info(self.i18n("order_success_wait_interrupted"))
                     break
             else:
-                ORDER_CHECK_INTERVAL = 1
+                ORDER_CHECK_INTERVAL = 0.5
                 if (
                     self.last_order_time + 5 - self.config.get("delta", 0.05)
                 ) - time.time() > 0:
@@ -2013,3 +2023,4 @@ class BHYG(metaclass=ProtectedMeta):
     def calculate_pay_money(self):
         # TODO: Calculate pay money according to the sku_id and count, and return the pay money.
         return self.config["pay_money"] * self.config["count"]
+        
