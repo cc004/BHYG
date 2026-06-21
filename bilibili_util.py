@@ -44,7 +44,6 @@ class BilibiliClient:
             headers=self.headers,
             timeout=10,
             http2=True,
-            proxy="http://localhost:123",
             event_hooks={
                 "request": [self._on_request],
                 "response": [self._on_response]
