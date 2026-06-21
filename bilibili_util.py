@@ -62,7 +62,7 @@ class BilibiliClient:
             'User-Agent': "Mozilla/5.0",
         }
         try:
-            resp = httpx.get("https://app.bilibili.com/x/v2/version?mobi_app=android", headers=tmp_headers).json()
+            resp = httpx.get("https://app.bilibili.com/x/v2/version?mobi_app=android", headers=tmp_headers, verify=False).json()
         except Exception as e:
             logger.error(f"获取最新版本失败: {e} Fallback to 8.35.0")
             self.biliAppVersion = "8350200"

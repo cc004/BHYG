@@ -646,6 +646,11 @@ class BHYG(metaclass=ProtectedMeta):
             if time.time() < self.token_exp - 60:
                 # not expired
                 return self.token, self.ptoken
+            
+        self.token, self.ptoken = self.prepare_token()
+        self.token_exp = time.time() + 60 * 5 # not sure accurate value, obtained by testing
+        return self.token, self.ptoken
+    
         # use prepare
         return self.prepare_token()
         # NOT AVAILABLE IN OSS
@@ -1556,7 +1561,7 @@ class BHYG(metaclass=ProtectedMeta):
                     logger.info(self.i18n("order_success_wait_interrupted"))
                     break
             else:
-                ORDER_CHECK_INTERVAL = 0.5
+                ORDER_CHECK_INTERVAL = 1
                 if (
                     self.last_order_time + 5 - self.config.get("delta", 0.05)
                 ) - time.time() > 0:
