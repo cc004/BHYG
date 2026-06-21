@@ -78,19 +78,3 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: build/${{ github.ref_name }}-${{ matrix.build }}
-
-      - name: Upload to BDist
-        shell: bash
-        env:
-          BDIST_UPLOAD_URL: ${{ vars.BDIST_UPLOAD_URL || 'https://dist.rakuyoudesu.com/ci/upload' }}
-          BDIST_UPLOAD_TOKEN: ${{ secrets.BDIST_UPLOAD_TOKEN }}
-          BDIST_CLIENT: ${{ matrix.bdist_client }}
-          BDIST_FILENAME: ${{ github.ref_name }}-${{ matrix.build }}
-          BDIST_FILE: build/${{ github.ref_name }}-${{ matrix.build }}
-        run: |
-          curl --fail-with-body --show-error --silent --location \
-            -X POST "$BDIST_UPLOAD_URL" \
-            -H "Authorization: Bearer $BDIST_UPLOAD_TOKEN" \
-            -F "client=$BDIST_CLIENT" \
-            -F "filename=$BDIST_FILENAME" \
-            -F "file=@$BDIST_FILE"
