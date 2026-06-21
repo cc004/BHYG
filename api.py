@@ -31,6 +31,7 @@ VERSION = "v1.13.1 OSS"
 
 USE_CAPTCHA = False
 
+ROUND = 0
 
 class ProtectedMeta(type):
     def __setattr__(cls, name, value):
@@ -42,14 +43,6 @@ class ProtectedMeta(type):
 
 @final
 class BHYG(metaclass=ProtectedMeta):
-    def __new__(cls, *args, **kwargs):
-        if cls is not BHYG:
-            raise TypeError(f"Hacker!!!")
-        return super().__new__(cls)
-
-    def __init_subclass__(cls, **kwargs):
-        raise TypeError(f"Hacker!!!")
-
     def __init__(
         self
     ):
@@ -58,6 +51,7 @@ class BHYG(metaclass=ProtectedMeta):
             self.DEBUG = True
         else:
             self.DEBUG = False
+        self.DEBUG = False
         print(f"Version: {VERSION} Ethan")
         self.phrases = {}
         if sys.platform == "win32":
@@ -98,21 +92,21 @@ class BHYG(metaclass=ProtectedMeta):
         sentry_loguru = LoguruIntegration(
             level=LoggingLevels.DEBUG.value, event_level=LoggingLevels.CRITICAL.value
         )
-        sentry_sdk.init(
-            dsn="https://da1bda709a249bb7d7ccfbfda4be1c91@sentry-inc.rakuyoudesu.com/4",
-            release=VERSION,
-            environment="debug" if self.DEBUG else "production",
-            attach_stacktrace=True,
-            integrations=[sentry_loguru],
-            send_default_pii=True,
-            event_scrubber=EventScrubber(denylist=[], pii_denylist=[]),
-            traces_sample_rate=1.0,
-        )
+        #sentry_sdk.init(
+        #    dsn="https://da1bda709a249bb7d7ccfbfda4be1c91@sentry-inc.rakuyoudesu.com/4",
+        #    release=VERSION,
+        #    environment="debug" if self.DEBUG else "production",
+        #    attach_stacktrace=True,
+        #    integrations=[sentry_loguru],
+        #    send_default_pii=True,
+        #    event_scrubber=EventScrubber(denylist=[], pii_denylist=[]),
+        #    traces_sample_rate=1.0,
+        #)
         sentry_sdk.set_tag("machine_id", self.machine_id)
-        info = security.check_signature()
-        if info is None:
-            sys.exit(1)
-        print("Welcome, " + info.split("|")[0])
+        #info = security.check_signature()
+        #if info is None:
+        #    sys.exit(1)
+        #print("Welcome, " + info.split("|")[0])
         self.last_order_time = 0
         self.last_order_check_time = 0
         self.voucher = ""
@@ -257,6 +251,7 @@ class BHYG(metaclass=ProtectedMeta):
             sentry_sdk.set_tag("qq", " ".join(self.qqids))
 
     def decrypt_aes(self, data: str) -> str:
+        return data
         try:
             key = hashlib.md5(self.machine_id.encode()).hexdigest().encode()[:16]
             encrypted_data = base64.b64decode(data[7:])
@@ -272,6 +267,7 @@ class BHYG(metaclass=ProtectedMeta):
             return ""
         
     def encrypt_aes(self, data: str) -> str:
+        return data
         try:
             key = hashlib.md5(self.machine_id.encode()).hexdigest().encode()[:16]
             cipher = AES.new(
@@ -1110,6 +1106,8 @@ class BHYG(metaclass=ProtectedMeta):
                 return True
 
     def do_order_create(self):
+        global ROUND
+
         if not self.check_select_sku_complete():
             logger.error(self.i18n("select_sku_not_complete"))
             return False
@@ -1187,18 +1185,33 @@ class BHYG(metaclass=ProtectedMeta):
         # TEST 429 BYPASS MARKER
         # TEST 412 BYPASS MARKER
         # NOT AVAILABLE IN OSS
+        ROUND = ROUND + 1
+        combines = [
+            ('show.bilibili.com', None),
+            ('www.bilibili.cn', None),
+            ('show.bilibili.cn', None),
+        ]
 
-        if self.config.get("ip", None) is not None:
-            resp = self.client.post(
-                f"{self.order_base}/api/ticket/order/createV2?project_id={self.config['project_id']}{'&ptoken=' + ptoken if self.config['hotProject'] else ''}",
-                ip=self.config["ip"],
-                json=data,
-            )
-        else:
-            resp = self.client.post(
-                f"{self.order_base}/api/ticket/order/createV2?project_id={self.config['project_id']}{'&ptoken=' + ptoken if self.config['hotProject'] else ''}",
-                json=data,
-            )
+        order_base, order_ip = combines[ROUND % len(combines)]
+
+        logger.info(f"Trying order create with base {order_base} and ip {order_ip}...")
+        resp = self.client.post(
+            f"https://{order_base}/api/ticket/order/createV2?project_id={self.config['project_id']}{'&ptoken=' + ptoken if self.config['hotProject'] else ''}",
+            json=data,
+            **{"ip": order_ip} if order_ip is not None else {}
+        )
+
+        # if self.config.get("ip", None) is not None:
+        #     resp = self.client.post(
+        #         f"{self.order_base}/api/ticket/order/createV2?project_id={self.config['project_id']}{'&ptoken=' + ptoken if self.config['hotProject'] else ''}",
+        #         ip=self.config["ip"],
+        #         json=data,
+        #     )
+        # else:
+        #     resp = self.client.post(
+        #         f"{self.order_base}/api/ticket/order/createV2?project_id={self.config['project_id']}{'&ptoken=' + ptoken if self.config['hotProject'] else ''}",
+        #         json=data,
+        #     )
         logger.debug("Order create response:")
         logger.debug(resp)
         if resp["code"] == 0 and "defaultBBR" not in resp.get("message", ""):
@@ -1263,27 +1276,27 @@ class BHYG(metaclass=ProtectedMeta):
                     username=self.client.username,
                 )
             )
-            try:
-                self.client.post(
-                    f"https://report.rakuyoudesu.com/report",
-                    json={
-                        "app": "bhyg",
-                        "version": VERSION,
-                        "type": "ordered",
-                        "data": {
-                            "id": self.client.uid,
-                            "order_id": order_id,
-                            "sku_id": self.config["sku_id"],
-                            "screen_id": self.config["sku_id"],
-                            "project_id": self.config["project_id"],
-                            "username": self.client.username,
-                            "machine_id": self.machine_id,
-                            "buyers": buyers,
-                        },
-                    },
-                )
-            except:
-                pass
+            # try:
+            #     self.client.post(
+            #         f"https://report.rakuyoudesu.com/report",
+            #         json={
+            #             "app": "bhyg",
+            #             "version": VERSION,
+            #             "type": "ordered",
+            #             "data": {
+            #                 "id": self.client.uid,
+            #                 "order_id": order_id,
+            #                 "sku_id": self.config["sku_id"],
+            #                 "screen_id": self.config["sku_id"],
+            #                 "project_id": self.config["project_id"],
+            #                 "username": self.client.username,
+            #                 "machine_id": self.machine_id,
+            #                 "buyers": buyers,
+            #             },
+            #         },
+            #     )
+            # except:
+            #     pass
             if len(push_config["push_actions"]) > 0:
                 # img to base64
                 import base64
@@ -1543,6 +1556,7 @@ class BHYG(metaclass=ProtectedMeta):
                     logger.info(self.i18n("order_success_wait_interrupted"))
                     break
             else:
+                ORDER_CHECK_INTERVAL = 0.5
                 if (
                     self.last_order_time + 5 - self.config.get("delta", 0.05)
                 ) - time.time() > 0:
@@ -1551,12 +1565,12 @@ class BHYG(metaclass=ProtectedMeta):
                         - time.time()
                     )
                 elif (
-                    self.last_order_check_time + 1 - self.config.get("delta", 0.05)
+                    self.last_order_check_time + ORDER_CHECK_INTERVAL - self.config.get("delta", 0.05)
                 ) - time.time() > 0:
                     time.sleep(
                         (
                             self.last_order_check_time
-                            + 1
+                            + ORDER_CHECK_INTERVAL
                             - self.config.get("delta", 0.05)
                         )
                         - time.time()
@@ -1565,6 +1579,14 @@ class BHYG(metaclass=ProtectedMeta):
                     time.sleep(self.config.get("order_interval", 0.3))
 
     def check_follow(self, run_follow=True):
+        self.follow = {
+            "followed": True,
+            "be_followed": True,
+            "followed_time": 0,
+        }
+        logger.success(self.i18n("old_follower"))
+        return
+    
         resp = self.client.get("https://api.bilibili.com/x/relation?fid=531718444")
         self.follow = {
             "followed": False,
@@ -1774,9 +1796,10 @@ class BHYG(metaclass=ProtectedMeta):
         # Current Zone Info
         try:
             if 0: # SUPERMODE V2
-                self.order_base = "https://www.bilibili.cn"
+                self.order_base = "https://show.bilibili.cn"
                 resp = self.client.post(
-                    self.order_base + "/api/ticket/order/createV2", raw=True
+                    self.order_base + "/api/ticket/order/createV2", raw=True,
+                    ip = '43.141.110.211'
                 )
             elif self.config.get("ip", None) is not None:
                 self.order_base = "https://show.bilibili.com"
