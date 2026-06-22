@@ -29,7 +29,7 @@ from typing import final
 POLICY_BASE = "https://not.available.in.oss.invalid"
 VERSION = "v1.13.1 OSS"
 
-BYPASS_412 = False
+BYPASS_412 = True
 
 USE_CAPTCHA = False
 
@@ -1196,13 +1196,13 @@ class BHYG(metaclass=ProtectedMeta):
         combines = [
             ('show.bilibili.com', None),
             ('www.bilibili.cn', None),
-            ('show.bilibili.cn', None),
+            #('show.bilibili.cn', None), # 无意义，和show.bilibili.com相同
         ]
 
         order_base, order_ip = combines[ROUND % len(combines)]
 
         logger.debug(f"Trying order create with base {order_base} and ip {order_ip}...")
-        
+
         if BYPASS_412: # not sure if works
             user_id_new  = random.randint(10000000, 99999999)
             self.client.session.cookies.pop("DedeUserID", None)
@@ -1215,6 +1215,13 @@ class BHYG(metaclass=ProtectedMeta):
             json=data,
             **{"ip": order_ip} if order_ip is not None else {}
         )
+
+        if BYPASS_412: # not sure if works
+            user_id_new  = self.client.uid
+            self.client.session.cookies.pop("DedeUserID", None)
+            self.client.session.cookies.set(
+                "DedeUserID", str(user_id_new), domain=".bilibili.com"
+            )
 
         # if self.config.get("ip", None) is not None:
         #     resp = self.client.post(
@@ -1571,7 +1578,7 @@ class BHYG(metaclass=ProtectedMeta):
                     logger.info(self.i18n("order_success_wait_interrupted"))
                     break
             else:
-                ORDER_CHECK_INTERVAL = 0.5
+                ORDER_CHECK_INTERVAL = 1
                 if (
                     self.last_order_time + 5 - self.config.get("delta", 0.05)
                 ) - time.time() > 0:
