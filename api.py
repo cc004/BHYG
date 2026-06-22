@@ -30,6 +30,7 @@ POLICY_BASE = "https://not.available.in.oss.invalid"
 VERSION = "v1.13.1 OSS"
 
 BYPASS_412 = True
+BYPASS_429 = False
 
 USE_CAPTCHA = False
 
@@ -1403,7 +1404,13 @@ class BHYG(metaclass=ProtectedMeta):
             or resp["code"] in range(200, 299)
             or resp["code"] in [900002, 3]
         ):
-            self.last_order_check_time = time.time()
+            if resp["code"] == 429:
+                if BYPASS_429 and BYPASS_412:
+                    pass
+                else:
+                    self.last_order_check_time = time.time()
+            else:
+                self.last_order_check_time = time.time()
         if resp["code"] in range(200, 299):
             self.last_order_time = time.time()
         return False
