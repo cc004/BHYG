@@ -30,7 +30,7 @@ POLICY_BASE = "https://not.available.in.oss.invalid"
 VERSION = "v1.13.1 OSS"
 
 BYPASS_412 = True
-BYPASS_429 = False
+BYPASS_429 = True
 
 USE_CAPTCHA = False
 
