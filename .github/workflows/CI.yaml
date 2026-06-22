@@ -85,6 +85,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: build/${{ steps.vars.outputs.short_sha }}-${{ matrix.build }}
-          tag_name: ${{ steps.vars.outputs.full_sha }}
+          tag_name: commit-${{ steps.vars.outputs.full_sha }}
           name: ${{ steps.vars.outputs.short_sha }}
           target_commitish: ${{ steps.vars.outputs.full_sha }}
