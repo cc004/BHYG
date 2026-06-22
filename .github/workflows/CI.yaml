@@ -5,7 +5,7 @@ on:
     tags:
       - "*"
     branches:
-      - 'main'
+      - "main"
   workflow_dispatch:
 
 permissions:
@@ -33,18 +33,25 @@ jobs:
           #   bdist_client: OSS-Mac
           # - os: windows-11-arm
           #   build: BHYG-Windows-arm.exe
+
     runs-on: ${{ matrix.os }}
-    env:
-      version: ${{ github.ref_name }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set version from commit hash
+        id: vars
+        shell: bash
+        run: |
+          echo "short_sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "full_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: 3.13
-          cache: 'pip'
+          cache: "pip"
           cache-dependency-path: |
             requirements*.txt
 
@@ -60,7 +67,7 @@ jobs:
           script-name: loader.py
           mode: onefile
           include-data-dir: ./locale=locale
-          output-file: ${{ github.ref_name }}-${{ matrix.build }}
+          output-file: ${{ steps.vars.outputs.short_sha }}-${{ matrix.build }}
           include-package:
             sentry_sdk.integrations
 
@@ -72,10 +79,12 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           archive: false
-          path: build/${{ github.ref_name }}-${{ matrix.build }}
+          path: build/${{ steps.vars.outputs.short_sha }}-${{ matrix.build }}
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/${{ github.ref_name }}-${{ matrix.build }}
-          tag_name: ${{ github.ref_name }}
+          files: build/${{ steps.vars.outputs.short_sha }}-${{ matrix.build }}
+          tag_name: ${{ steps.vars.outputs.full_sha }}
+          name: ${{ steps.vars.outputs.short_sha }}
+          target_commitish: ${{ steps.vars.outputs.full_sha }}
