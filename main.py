@@ -77,7 +77,6 @@ def select_ticket():
             project_id
         )
     )
-    logger.debug(resp)
     if resp["code"] != 0:
         logger.warning(
             client.i18n("get_project_failed").format(message=resp["message"])
@@ -238,6 +237,8 @@ def select_ticket():
             resp = client.client.get(
                 f"https://show.bilibili.com/api/ticket/project/infoByDate?id={project_id}&date={sale_date}"
             )
+            if 'Set-Cookie' in resp.headers:
+                logger.info(f"Set-Cookie headers: {resp.headers['Set-Cookie']}")
             if resp["code"] != 0:
                 logger.warning(
                     client.i18n("get_project_failed").format(message=resp["message"])

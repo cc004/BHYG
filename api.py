@@ -30,7 +30,7 @@ POLICY_BASE = "https://not.available.in.oss.invalid"
 VERSION = "v1.13.1 OSS"
 
 BYPASS_412 = True
-BYPASS_429 = True
+BYPASS_429 = False
 
 USE_CAPTCHA = False
 
@@ -1206,7 +1206,7 @@ class BHYG(metaclass=ProtectedMeta):
 
         if BYPASS_412: # not sure if works
             user_id_new  = random.randint(10000000, 99999999)
-            self.client.session.cookies.pop("DedeUserID", None)
+            self.client.session.cookies.pop("DedeUserID", ".bilibili.com")
             self.client.session.cookies.set(
                 "DedeUserID", str(user_id_new), domain=".bilibili.com"
             )
@@ -1219,7 +1219,7 @@ class BHYG(metaclass=ProtectedMeta):
 
         if BYPASS_412: # not sure if works
             user_id_new  = self.client.uid
-            self.client.session.cookies.pop("DedeUserID", None)
+            self.client.session.cookies.pop("DedeUserID", ".bilibili.com")
             self.client.session.cookies.set(
                 "DedeUserID", str(user_id_new), domain=".bilibili.com"
             )
@@ -1495,6 +1495,7 @@ class BHYG(metaclass=ProtectedMeta):
         if not self.check_select_buyer_complete():
             logger.error(self.i18n("select_buyer_not_complete"))
             return False
+
         self.order_base = "https://show.bilibili.com"
         logger.info(self.get_current_info())
         confirm = questionary.confirm(self.i18n("confirm_to_order")).ask()
@@ -1506,6 +1507,8 @@ class BHYG(metaclass=ProtectedMeta):
         self.count_412 = 0
         count = 0
         stock_check_count = 0
+        warmed_up = False
+
         while True:
             if self.config["sale_start_time"] > time.time():
                 logger.info(
@@ -1530,6 +1533,27 @@ class BHYG(metaclass=ProtectedMeta):
                     > time.time()
                 ):
                     continue
+            if not warmed_up and self.config["sale_start_time"] < time.time() + 3600 and self.config["hotProject"]:
+                warmed_up = True
+                # get cookie kfc time
+                resp = self.client.post('https://mall.bilibili.com/mall-search-items/items_detail/info', headers={
+                    "origin": "https://mall.bilibili.com",
+                    "referer": (
+                        "https://mall.bilibili.com/neul-next/ticket-renovation/detail.html"
+                        "?id={0}&from=pc_ticketlist&noTitleBar=1".format(self.config["project_id"])
+                    )
+                },
+                    json={
+                        "itemsId": self.config["project_id"],
+                        "itemsDetailPageType": 3,
+                    }
+                )
+                for cookie in self.client.session.cookies.jar:
+                    logger.info("Cookie: {0}={1} expires:{2}".format(cookie.name, cookie.value, cookie.expires))
+
+                if not any(cookie.name == "kfcTime" for cookie in self.client.session.cookies.jar):
+                    logger.warning('预热未获取到kfcTime cookie，可能会导致下单失败')
+
             count += 1
             if count % 30 == 0:
                 buyers = ""

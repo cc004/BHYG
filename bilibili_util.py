@@ -1,5 +1,7 @@
 import base64
 import hmac
+import http
+import http.cookiejar
 import time
 import uuid
 import httpx
@@ -542,12 +544,30 @@ class BilibiliClient:
         }
         return data
 
+    def clean_cookie(self):
+        # 清除重复的cookie，保留最晚validate，主要针对KfcTime会setCookie多次，但是客户端cookie只会发送一个
+        seen = {}
+        for cookie in self.session.cookies.jar:
+            if (
+                cookie.name not in seen or
+                cookie.expires is None or
+                seen[cookie.name].expires is None and cookie.expires > seen[cookie.name].expires
+            ):
+                seen[cookie.name] = cookie
+        new_jar = http.cookiejar.CookieJar()
+        for cookie in seen.values():
+            new_jar.set_cookie(cookie)
+        self.session.cookies.jar = new_jar
+
     def get(self, url: str, **kwargs) -> httpx.Response:
         try:
             resp = self.session.get(url, **kwargs)
         except Exception as e:
             return {"code": -114514,"message": f"请求失败：{e}","data": None}
         if resp.status_code == 200:
+            if 'Set-Cookie' in resp.headers:
+                logger.info(f"Set-Cookie headers: {resp.headers['Set-Cookie']}")
+                self.clean_cookie()
             resp = resp.json()
             resp_content = {
                 "code": resp["code"] if "code" in resp else resp["errno"] if "errno" in resp else None,
@@ -599,10 +619,13 @@ class BilibiliClient:
             return resp
         if resp.status_code == 200:
             try:
-                # logger.debug(f"Request headers: {resp.request.headers}")
-                # logger.debug(f"Request body: {resp.request.content}")
-                # logger.debug(f"Response headers: {resp.headers}")
-                # logger.debug(f"Response content: {resp.text}")
+                if 'Set-Cookie' in resp.headers:
+                    logger.info(f"Set-Cookie headers: {resp.headers['Set-Cookie']}")
+                    self.clean_cookie()
+                #logger.info(f"Request headers: {resp.request.headers}")
+                #logger.info(f"Request body: {resp.request.content}")
+                #logger.info(f"Response headers: {resp.headers}")
+                #logger.info(f"Response content: {resp.text}")
                 resp = resp.json()
                 resp_content = {
                     "code": resp["code"] if "code" in resp else resp["errno"] if "errno" in resp else None,
@@ -644,15 +667,25 @@ class BilibiliClient:
         import pickle
         import base64
         self._headers = dict(self.session.headers)
-        self._cookies = {}
-        for i in list(self.session.cookies):
-            self._cookies[i] = self.session.cookies.get(i, domain=".bilibili.com")
-            if self._cookies[i] == None:
-                self._cookies[i] = self.session.cookies.get(i, domain="show.bilibili.com")
-            if self._cookies[i] == None:
-                self._cookies[i] = self.session.cookies.get(i, domain="")
-            if self._cookies[i] == None:
-                self._cookies.pop(i)
+        self._cookies = []
+        for cookie in self.session.cookies.jar:
+            if cookie.domain in [".bilibili.com", "show.bilibili.com", ""]:
+                self._cookies.append({
+                    "name": cookie.name,
+                    "value": cookie.value,
+                    "domain": cookie.domain,
+                    "path": cookie.path,
+                    "expires": cookie.expires,
+                    "secure": cookie.secure
+                })
+        # for i in list(self.session.cookies):
+        #     self._cookies[i] = self.session.cookies.get(i, domain=".bilibili.com")
+        #     if self._cookies[i] == None:
+        #         self._cookies[i] = self.session.cookies.get(i, domain="show.bilibili.com")
+        #     if self._cookies[i] == None:
+        #         self._cookies[i] = self.session.cookies.get(i, domain="")
+        #     if self._cookies[i] == None:
+        #         self._cookies.pop(i)
         tmp_session = self.session
         self.session = None
         data = pickle.dumps(self)
@@ -676,6 +709,29 @@ class BilibiliClient:
             },
             verify=False
         )
-        self.session.cookies.update(self._cookies)
+        # self.session.cookies.update(self._cookies)
+        for cookie in self._cookies:
+            kwargs = {
+                "version": 0,
+                "name": cookie["name"],
+                "value": cookie["value"],
+                "port": None,
+                "port_specified": False,
+                "domain": '', # make sure cookies can apply to bilibili.cn
+                "domain_specified": False,
+                "domain_initial_dot": False,
+                "path": cookie["path"],
+                "path_specified": bool(cookie["path"]),
+                "secure": False,
+                "expires": cookie["expires"],
+                "discard": True,
+                "comment": None,
+                "comment_url": None,
+                "rest": {"HttpOnly": None},
+                "rfc2109": False,
+            }
+            logger.info(f"Loading cookie: {kwargs}")
+            cookie = http.cookiejar.Cookie(**kwargs)  # type: ignore
+            self.session.cookies.jar.set_cookie(cookie)
         self._getKeys()
         return

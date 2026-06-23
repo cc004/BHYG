@@ -56,24 +56,44 @@ jobs:
             requirements*.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install pyinstaller
 
-      - name: Install Cython
-        run: pip install Cython
+      - name: PyInstaller Build
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Nuitka Build
-        uses: Nuitka/Nuitka-Action@main
-        with:
-          script-name: loader.py
-          mode: onefile
-          include-data-dir: ./locale=locale
-          output-file: ${{ steps.vars.outputs.short_sha }}-${{ matrix.build }}
-          include-package:
-            sentry_sdk.integrations
+          OUT_NAME="${{ steps.vars.outputs.short_sha }}-${{ matrix.build }}"
+          PYI_NAME="${OUT_NAME%.exe}"
+
+          DATA_SEP=":"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            DATA_SEP=";"
+          fi
+
+          pyinstaller \
+            --clean \
+            --noconfirm \
+            --onefile \
+            --name "$PYI_NAME" \
+            --add-data "locale${DATA_SEP}locale" \
+            --collect-submodules sentry_sdk.integrations \
+            loader.py
+
+          mkdir -p build
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            mv "dist/${PYI_NAME}.exe" "build/${OUT_NAME}"
+          else
+            mv "dist/${PYI_NAME}" "build/${OUT_NAME}"
+          fi
 
       - name: Add executable attr
         run: chmod +x build/*
-        if: matrix.os != 'windows'
+        if: matrix.os != 'windows-latest'
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
